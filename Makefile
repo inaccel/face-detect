@@ -1,10 +1,18 @@
 CXXFLAGS = -O3 -std=c++11 -Wall
 
 ifeq (${TARGET}, sw)
-CXX_SRCS = sw/face_detect.cpp sw/rectangles.cpp sw/haar.cpp sw/image.cpp sw/stdio-wrapper.cpp
+ifeq (${SAVE}, yes)
+CXX_SRCS = sw/face_detect_save.cpp sw/rectangles.cpp sw/haar.cpp sw/image.cpp sw/stdio-wrapper.cpp
+else
+CXX_SRCS = sw/face_detect_view.cpp sw/rectangles.cpp sw/haar.cpp sw/image.cpp sw/stdio-wrapper.cpp
+endif
 else
 ifeq (${TARGET}, hw)
-CXX_SRCS = hw/face_detect.cpp hw/rectangles.cpp hw/utils.cpp
+ifeq (${SAVE}, yes)
+CXX_SRCS = hw/face_detect_save.cpp hw/rectangles.cpp hw/utils.cpp
+else
+CXX_SRCS = hw/face_detect_view.cpp hw/rectangles.cpp hw/utils.cpp
+endif
 else
 $(error TARGET must either be defined as 'hw' or 'sw')
 endif
