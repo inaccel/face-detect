@@ -25,11 +25,11 @@ public:
 		while(true) {
 			std::lock_guard<std::mutex> lock(m);
 			if (maxSize < 0) {
-				q.push(t);
+				q.push(std::move(t));
 				break;
 			}
 			else if (q.size() < (unsigned) maxSize) {
-				q.push(t);
+				q.push(std::move(t));
 				break;
 			}
 			else c.notify_one();
@@ -46,7 +46,7 @@ public:
 			c.wait(lock);
 		}
 
-		T val = q.front();
+		T val = std::move(q.front());
 		q.pop();
 		return val;
 	}

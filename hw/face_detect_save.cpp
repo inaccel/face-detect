@@ -29,13 +29,13 @@
 
 typedef struct {
 	cv::Mat frame;
-	inaccel::vector<unsigned char> *input;
-	inaccel::vector<int> *result_x;
-	inaccel::vector<int> *result_y;
-	inaccel::vector<int> *result_w;
-	inaccel::vector<int> *result_h;
-	inaccel::vector<int> *res_size;
-	inaccel::session future;
+	inaccel::vector<unsigned char> input;
+	inaccel::vector<int> result_x;
+	inaccel::vector<int> result_y;
+	inaccel::vector<int> result_w;
+	inaccel::vector<int> result_h;
+	inaccel::vector<int> res_size;
+	std::future<void> response;
 	double real_fps;
 } frame_request;
 
@@ -47,7 +47,7 @@ typedef struct {
 	double real_fps;
 } gui_frame;
 
-void submitter(cv::VideoCapture &video, SafeQueue<frame_request> &queue, int frameNo) {
+void submitter(cv::VideoCapture &video, SafeQueue<frame_request> *queue, int frameNo) {
 	std::cout << "Submitter thread\n";
 	double real_fps = video.get(cv::CAP_PROP_FPS);
 
@@ -61,46 +61,38 @@ void submitter(cv::VideoCapture &video, SafeQueue<frame_request> &queue, int fra
 		resize(frame, frame, cvSize(IMAGE_WIDTH, IMAGE_HEIGHT));
 		cv::cvtColor(frame, gray, cv::COLOR_RGB2GRAY);
 
-		inaccel::vector<unsigned char> *input = new inaccel::vector<unsigned char>;
-		inaccel::vector<int> *result_x = new inaccel::vector<int>;
-		inaccel::vector<int> *result_y = new inaccel::vector<int>;
-		inaccel::vector<int> *result_w = new inaccel::vector<int>;
-		inaccel::vector<int> *result_h = new inaccel::vector<int>;
-		inaccel::vector<int> *res_size = new inaccel::vector<int>;
+		inaccel::vector<unsigned char> input(IMAGE_HEIGHT * IMAGE_WIDTH);
+		inaccel::vector<int> result_x(RESULT_SIZE);
+		inaccel::vector<int> result_y(RESULT_SIZE);
+		inaccel::vector<int> result_w(RESULT_SIZE);
+		inaccel::vector<int> result_h(RESULT_SIZE);
+		inaccel::vector<int> res_size(1);
 
-		input->resize(IMAGE_HEIGHT * IMAGE_WIDTH);
-		result_x->resize(RESULT_SIZE);
-		result_y->resize(RESULT_SIZE);
-		result_w->resize(RESULT_SIZE);
-		result_h->resize(RESULT_SIZE);
-		res_size->resize(1);
-
-		unsigned char *input_ptr = input->data();
-		memcpy(input_ptr, gray.data, IMAGE_HEIGHT * IMAGE_WIDTH * sizeof(unsigned char));
+		memcpy(input.data(), gray.data, IMAGE_HEIGHT * IMAGE_WIDTH * sizeof(unsigned char));
 
 		inaccel::request facedetect("edu.cornell.ece.zhang.rosetta.face-detect");
-		facedetect.arg(*input).arg(*result_x).arg(*result_y).arg(*result_w).arg(*result_h).arg(*res_size);
+		facedetect.arg(input).arg(result_x).arg(result_y).arg(result_w).arg(result_h).arg(res_size);
 
-		inaccel::session future = inaccel::submit(facedetect);
+		std::future<void> response = inaccel::submit(facedetect);
 
 		frame_request queue_element;
-		queue_element.frame = frame;
-		queue_element.input = input;
-		queue_element.result_x = result_x;
-		queue_element.result_y = result_y;
-		queue_element.result_w = result_w;
-		queue_element.result_h = result_h;
-		queue_element.res_size = res_size;
-		queue_element.future = future;
-		queue_element.real_fps = real_fps;
+		queue_element.frame = std::move(frame);
+		queue_element.input = std::move(input);
+		queue_element.result_x = std::move(result_x);
+		queue_element.result_y = std::move(result_y);
+		queue_element.result_w = std::move(result_w);
+		queue_element.result_h = std::move(result_h);
+		queue_element.res_size = std::move(res_size);
+		queue_element.response = std::move(response);
+		queue_element.real_fps = std::move(real_fps);
 
-		queue.enqueue(queue_element);
+		queue->enqueue(std::move(queue_element));
 	}
-	
+
 	video.release();
 }
 
-void waiter(SafeQueue<frame_request> &queue, SafeQueue<gui_frame> &gui_queue, int frameNo) {
+void waiter(SafeQueue<frame_request> *queue, SafeQueue<gui_frame> &gui_queue, int frameNo) {
 	std::cout << "Waiter thread\n";
 
 	std::thread::id t_id = std::this_thread::get_id();
@@ -109,28 +101,27 @@ void waiter(SafeQueue<frame_request> &queue, SafeQueue<gui_frame> &gui_queue, in
 
 	for (int i = 0; i < frameNo; i++) {
 		auto start = std::chrono::high_resolution_clock::now();
-		frame_request queue_element;
 
-		queue_element = queue.dequeue();
+		frame_request queue_element = queue->dequeue();
 
-		inaccel::wait(queue_element.future);
+		queue_element.response.get();
 
-		if ((*queue_element.res_size)[0]) {
+		if (queue_element.res_size[0]) {
 			const float GROUP_EPS = 0.4f;
 			int minNeighbours = 1;
 
-			groupRectangles(*(queue_element.result_x), *(queue_element.result_y),
-							*(queue_element.result_w), *(queue_element.result_h),
-							(*queue_element.res_size)[0], minNeighbours, GROUP_EPS);
+			groupRectangles(queue_element.result_x, queue_element.result_y,
+							queue_element.result_w, queue_element.result_h,
+							queue_element.res_size[0], minNeighbours, GROUP_EPS);
 
 		 	std::vector<cv::Mat> channels(3);
 			split(queue_element.frame, channels);
 
-			drawRectangles(queue_element.result_x->size(),
-				queue_element.result_x->data(),
-				queue_element.result_y->data(),
-				queue_element.result_w->data(),
-				queue_element.result_h->data(),
+			drawRectangles(queue_element.result_x.size(),
+				queue_element.result_x.data(),
+				queue_element.result_y.data(),
+				queue_element.result_w.data(),
+				queue_element.result_h.data(),
 				channels[1].data);
 
 			merge(channels, queue_element.frame);
@@ -152,18 +143,9 @@ void waiter(SafeQueue<frame_request> &queue, SafeQueue<gui_frame> &gui_queue, in
 
 		gui_queue.enqueue(gui);
 
-		delete queue_element.input;
-		delete queue_element.result_x;
-		delete queue_element.result_y;
-		delete queue_element.result_w;
-		delete queue_element.result_h;
-		delete queue_element.res_size;
-
 		auto end = std::chrono::high_resolution_clock::now();
-		
+
 		seconds += std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0f;
-		//if (i) seconds += std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0f;
-		//else seconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0f;
 	}
 }
 
@@ -217,7 +199,7 @@ int main(int argc, char ** argv) {
 	}
 
 	SafeQueue<gui_frame> gui_queue;
-	std::vector<SafeQueue<frame_request>> queues(video.size(), SafeQueue<frame_request>(64));
+	std::vector<SafeQueue<frame_request>*> queues;
 
 	std::thread viewerThread;
 	std::vector<std::thread> submitters(video.size());
@@ -226,8 +208,10 @@ int main(int argc, char ** argv) {
 	for (unsigned i = 0; i < video.size(); i++) {
 		int frameNo = video[i].get(cv::CAP_PROP_FRAME_COUNT);
 
-		waiters[i] = std::thread(waiter, std::ref(queues[i]), std::ref(gui_queue), frameNo);
-		submitters[i] = std::thread(submitter, std::ref(video[i]), std::ref(queues[i]), frameNo);
+		queues.push_back(new SafeQueue<frame_request>(64));
+
+		waiters[i] = std::thread(waiter, queues[i], std::ref(gui_queue), frameNo);
+		submitters[i] = std::thread(submitter, std::ref(video[i]), queues[i], frameNo);
 	}
 
 	if (video.size()) {
@@ -239,6 +223,8 @@ int main(int argc, char ** argv) {
 	for (unsigned i = 0; i < submitters.size(); i++) {
 		submitters[i].join();
 		waiters[i].join();
+
+		delete queues[i];
 	}
 
 	return 0;
