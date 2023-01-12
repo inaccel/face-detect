@@ -9,14 +9,17 @@
 // standard C/C++ headers
 #include <chrono>
 #include <cmath>
+#include <iomanip>
 #include <iostream>
+#include <map>
 #include <queue>
 #include <sstream>
 #include <string>
 #include <thread>
 
 // required OpenCV headers
-#include <opencv2/opencv.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 
 // other headers
@@ -39,13 +42,13 @@ void submitter(cv::VideoCapture &video, SafeQueue<gui_frame> &queue, int frameNo
 	float seconds = 1;
 
 	std::thread::id t_id = std::this_thread::get_id();
-	
+
 	MyImage inputobj;
 	MyImage *input = &inputobj;
 	input->width = IMAGE_WIDTH;
 	input->height = IMAGE_HEIGHT;
 	input->data = (unsigned char *) malloc(IMAGE_HEIGHT * IMAGE_WIDTH * sizeof(unsigned char));
-	
+
 	myCascade cascadeobj;
 	myCascade *cascade = &cascadeobj;
 	MySize minSize = {20, 20};
@@ -57,7 +60,7 @@ void submitter(cv::VideoCapture &video, SafeQueue<gui_frame> &queue, int frameNo
 	cascade->orig_window_size.width = 24;
 
 	std::vector<MyRect> result;
-	
+
 	int *stages_array = NULL;
 	int *rectangles_array = NULL;
 	int *weights_array = NULL;
@@ -67,7 +70,7 @@ void submitter(cv::VideoCapture &video, SafeQueue<gui_frame> &queue, int frameNo
 	int *stages_thresh_array = NULL;
 	int **scaled_rectangles_array = NULL;
 	double real_fps = video.get(cv::CAP_PROP_FPS);
-	
+
 	readTextClassifier(&stages_array, &rectangles_array, &weights_array, &alpha1_array, &alpha2_array, &tree_thresh_array, &stages_thresh_array, &scaled_rectangles_array);
 
 	for (int i = 0; i < frameNo; i++) {
@@ -79,9 +82,9 @@ void submitter(cv::VideoCapture &video, SafeQueue<gui_frame> &queue, int frameNo
 		video >> frame;
 		if(frame.empty()) break;
 
-		resize(frame, frame, cvSize(IMAGE_WIDTH, IMAGE_HEIGHT));
+		resize(frame, frame, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT));
 		cv::cvtColor(frame, gray, cv::COLOR_RGB2GRAY);
-		
+
 		memcpy(input->data, gray.data, IMAGE_HEIGHT * IMAGE_WIDTH * sizeof(unsigned char));
 
 		result = detectObjects(input, minSize, maxSize, cascade, scaleFactor, minNeighbours,
@@ -107,7 +110,7 @@ void submitter(cv::VideoCapture &video, SafeQueue<gui_frame> &queue, int frameNo
 		std::stringstream fps_stream;
 		fps_stream << std::fixed << std::setprecision(2) << fps;
 
-		cv::putText(frame, "AVG FPS: " + fps_stream.str(), cvPoint(IMAGE_WIDTH - 165, IMAGE_HEIGHT - 15), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0,255,0), 1, CV_AA);
+		cv::putText(frame, "AVG FPS: " + fps_stream.str(), cv::Point(IMAGE_WIDTH - 165, IMAGE_HEIGHT - 15), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(0,255,0), 1, cv::LINE_AA);
 
 		gui_frame gui;
 		gui.id = t_id;
@@ -141,7 +144,7 @@ void viewer(unsigned long num_videos, SafeQueue<gui_frame> &queue) {
 			std::stringstream ss;
 			ss << gui.id;
 			std::string filename = std::string("video-") + ss.str() + std::string(".mp4");
-			video_writers[gui.id] = std::move(cv::VideoWriter(filename,CV_FOURCC('M','P','4','V'), gui.real_fps, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT)));
+			video_writers[gui.id] = std::move(cv::VideoWriter(filename, cv::VideoWriter::fourcc('M','P','4','V'), gui.real_fps, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT)));
 			writer = std::move(video_writers[gui.id]);
 		}
 

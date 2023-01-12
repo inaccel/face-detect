@@ -12,6 +12,9 @@ Using this repository you can test face-detection on FPGAs either On-Premise or 
 - InAccel CLI
 - InAccel Coral-API
 - OpenCV libraries
+- XRT
+
+[Xilinx Runtime Library](https://www.xilinx.com/products/design-tools/vitis/xrt.html#:~:text=Xilinx%20Runtime%20library%20(XRT)%20is%20an%20open%2Dsource%20standardized,embedded%20platforms%20or%20Versal%20ACAPs.) (XRT) pre-built packages can be found [here](https://github.com/inaccel/driver/releases).
 
 You can find instructions on installing docker at https://docs.docker.com/engine/install/. Alternatively, you can install docker using the following command and further on manually configure it to start/enable the service, add your user to the docker group etc.:
 ``` bash
@@ -21,48 +24,47 @@ curl -sS https://get.docker.com | sh
 For a full documentation of the InAccel stack you can refer to https://docs.inaccel.com.
 To install InAccel CLI you can use the following command
 ```bash
-curl -sS https://setup.inaccel.com/repo | sh -s install
+curl -sS https://setup.inaccel.com/repository | sh -s install
 ```
+
+Enable docker and inaccel services
+```bash
+sudo systemctl enable --now docker
+sudo systemctl enable --now inaccel
+```
+
 Depending on your system you can either use apt or yum to install InAccel Coral API.
 ```bash
 sudo apt/yum install coral-api
 ```
 
-To install any necessary OpenCV library on Ubuntu you can simply execute the following command:
+To install any necessary OpenCV libraries on Ubuntu you can simply execute the following command:
 ```bash
-sudo apt install libopencv-*
+sudo apt install libopencv-core-dev libopencv-highgui-dev libopencv-imgproc-dev libopencv-videoio-dev
 ```
 
 For Centos and RedHat you can use the following flow for installing and configuring the OpenCV environment:
 ```bash
-git clone https://github.com/opencv/opencv.git && cd opencv && git checkout 3.4.2 && cd ..
-mkdir opencv/build && cd opencv/build && cmake .. && make -j && make install && cd ../..
-ln -s /usr/local/share/OpenCV/java/libopencv_java342.so /usr/lib/libopencv_java342.so
+git clone https://github.com/opencv/opencv.git -b 4.6.0
+mkdir opencv/build && cd opencv/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr  && make -j && sudo make install && cd ../..
 rm -rf opencv
-export LD_LIBRARY_PATH=/usr/local/lib64:$LD_LIBRARY_PATH
-```
-
-
-## Install a license:
-After you have installed all the required packages, you need to configure InAccel. Create a free license using the following link https://inaccel.com/license/. In a few moments you will receive your license at the mail address you provided.
-```bash
-inaccel config license <paste-your-license-here>
 ```
 
 ## Start InAccel:
 ```bash
-inaccel start
+sudo docker inaccel up
 ```
 
 ## Install any necessary bitstreams
 To run the application on FPGAs you need the right bitstreams. To make face-detection available for Xilinx Alveo U200 install the following bitstream:
 ```bash
-https://store.inaccel.com/artifactory/bitstreams/xilinx/u200/xdma_201830.2/edu/cornell/ece/zhang/rosetta/1.4/8face-detect
+inaccel install https://store.inaccel.com/artifactory/bitstreams/xilinx/u200/xdma_201830.2/edu/cornell/ece/zhang/rosetta/1.4/8face-detect
 ```
 
-To use face detection on AWS please install the following bitsteam:
+To use face detection on AWS please install the following bitsteams:
 ```bash
-https://store.inaccel.com/artifactory/bitstreams/xilinx/aws-vu9p-f1/dynamic_5.0/edu/cornell/ece/zhang/rosetta/1.1/4face-detect
+inaccel install https://store.inaccel.com/artifactory/bitstreams/xilinx/aws-vu9p-f1/dynamic-shell/aws/edu/cornell/ece/zhang/rosetta/1.1/4face-detect
+inaccel install https://store.inaccel.com/artifactory/bitstreams/xilinx/aws-vu9p-f1/shell-v04261818_201920.2/aws/edu/cornell/ece/zhang/rosetta/1.1/4face-detect
 ```
 
 ## Run the Face Detection Application

@@ -9,14 +9,17 @@
 // standard C/C++ headers
 #include <chrono>
 #include <cmath>
+#include <iomanip>
 #include <iostream>
+#include <map>
 #include <queue>
 #include <sstream>
 #include <string>
 #include <thread>
 
 // required OpenCV headers
-#include <opencv2/opencv.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 
 // InAccel API
@@ -58,7 +61,7 @@ void submitter(cv::VideoCapture &video, SafeQueue<frame_request> *queue, int fra
 		video >> frame;
 		if(frame.empty()) break;
 
-		resize(frame, frame, cvSize(IMAGE_WIDTH, IMAGE_HEIGHT));
+		resize(frame, frame, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT));
 		cv::cvtColor(frame, gray, cv::COLOR_RGB2GRAY);
 
 		inaccel::vector<unsigned char> input(IMAGE_HEIGHT * IMAGE_WIDTH);
@@ -132,7 +135,7 @@ void waiter(SafeQueue<frame_request> *queue, SafeQueue<gui_frame> &gui_queue, in
 		std::stringstream fps_stream;
 		fps_stream << std::fixed << std::setprecision(2) << fps;
 
-		cv::putText	(queue_element.frame, "AVG FPS: " + fps_stream.str(), cvPoint(IMAGE_WIDTH - 165, IMAGE_HEIGHT - 15), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0,255,0), 1, CV_AA);
+		cv::putText	(queue_element.frame, "AVG FPS: " + fps_stream.str(), cv::Point(IMAGE_WIDTH - 165, IMAGE_HEIGHT - 15), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(0,255,0), 1, cv::LINE_AA);
 
 		gui_frame gui;
 		gui.id = t_id;
@@ -164,7 +167,7 @@ void viewer(unsigned long num_videos, SafeQueue<gui_frame> &queue) {
 			std::stringstream ss;
 			ss << gui.id;
 			std::string filename = std::string("video-") + ss.str() + std::string(".mp4");
-			video_writers[gui.id] = std::move(cv::VideoWriter(filename,CV_FOURCC('M','P','4','V'), gui.real_fps, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT)));
+			video_writers[gui.id] = std::move(cv::VideoWriter(filename, cv::VideoWriter::fourcc('M','P','4','V'), gui.real_fps, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT)));
 			writer = std::move(video_writers[gui.id]);
 		}
 

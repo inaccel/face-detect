@@ -1,4 +1,4 @@
-CXXFLAGS = -O3 -std=c++11 -Wall
+CXXFLAGS = -O3 -std=c++11 -Wall -I/usr/include/opencv4
 
 ifeq (${TARGET}, sw)
 ifeq (${SAVE}, yes)
