@@ -87,3 +87,10 @@ The binary takes any input videos or cameras as arguments. E.g:
 The Face Detection (object detection) FPGA kernel used in this repository is provided from Cornell Zhang, Rosetta GitHub repository (https://github.com/cornell-zhang/rosetta) and is tweaked to get the most out of it.
 
 The CPU version for Viola Jones algorithm is provided from https://sites.google.com/site/5kk73gpu2012/assignment/viola-jones-face-detection.
+
+## Support
+This project has received funding from the European Union Horizon 2020 Research and Innovation program under grant agreement No. 871643 MORPHEMIC. 
+
+For more information please check: [MORPHEMIC](https://www.morphemic.cloud/)
+
+
